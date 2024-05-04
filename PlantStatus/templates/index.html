@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plant Health Status Identification</title>
+  <!-- Tailwind CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Bootstrap CSS -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <!-- FontAwesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+  <style>
+    .container {
+      max-width: 800px;
+    }
+    .chatbot-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+    }
+    .chatbot-container {
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      width: 400px;
+      height: 500px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+      overflow: auto;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <!-- Navigation Bar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand" href="#">Plant Health</a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="/templates/index.html">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/templates/aboutus.html">About</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Contact</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="container mx-auto my-8">
+    <div class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+      <p class="text-center text-lg text-gray-700 mb-4">Upload an image of a plant to identify its health status.</p>
+
+      <!-- Image upload form -->
+      <form id="uploadForm" enctype="multipart/form-data" class="flex items-center justify-center mb-4">
+        <input type="file" id="imageInput" accept="image/*" onchange="uploadImage(event)" required class="hidden">
+        <label for="imageInput" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg cursor-pointer">Select Image</label>
+      </form>
+
+      <!-- Image preview -->
+      <div id="imagePreview" class="flex justify-center mb-4 hidden">
+        <img id="selectedImage" alt="Selected Plant Image" style="max-width: 300px;">
+      </div>
+
+      <!-- Progress bar -->
+      <div id="progressBar" class="bg-gray-300 rounded-lg overflow-hidden mb-4 hidden">
+        <div id="progress" class="bg-green-500 text-white font-bold py-2 text-center"></div>
+      </div>
+
+      <!-- Result section -->
+      <div id="result" class="hidden">
+        <h2 class="text-lg font-bold mb-2">Color Detection Result:</h2>
+        <div id="colorResult" class="bg-gray-100 rounded-lg p-4 shadow-md"></div>
+        <div id="plantStatus" class="mt-4"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Chatbot Button -->
+  <a href="#" class="btn btn-primary chatbot-button" onclick="openChatbot()">
+    <i class="fas fa-robot"></i>
+  </a>
+
+  <!-- Chatbot Container -->
+  <div id="chatbotContainer" class="chatbot-container hidden">
+    <iframe id="chatbotFrame" src="/static/ChatBot.html" frameborder="0" style="width: 100%; height: 100%;"></iframe>
+  </div>
+
+
+
+  <!-- JavaScript for image upload -->
+  <script>
+    function uploadImage(event) {
+      var input = event.target;
+      var file = input.files[0];
+      var formData = new FormData();
+      formData.append('file', file);
+
+      // Show progress bar
+      var progressBar = document.getElementById('progress');
+      var progressBarContainer = document.getElementById('progressBar');
+      progressBarContainer.classList.remove('hidden');
+      progressBar.style.width = '0%';
+
+      // Display selected image
+      var imagePreview = document.getElementById('imagePreview');
+      imagePreview.classList.remove('hidden');
+      var selectedImage = document.getElementById('selectedImage');
+      selectedImage.src = URL.createObjectURL(file);
+
+      // Send image data to Flask server for color detection
+      fetch('/color-detection', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Hide progress bar
+        progressBarContainer.classList.add('hidden');
+        // Display color detection result
+        displayColorResult(data);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+    }
+
+    function displayColorResult(data) {
+      var colorResult = document.getElementById('colorResult');
+      colorResult.innerHTML = `
+        <p>Red Percentage: ${data['Red Percentage']}%</p>
+        <p>Orange Percentage: ${data['Orange Percentage']}%</p>
+        <p>Yellow Percentage: ${data['Yellow Percentage']}%</p>
+        <p>Green Percentage: ${data['Green Percentage']}%</p>
+        <p>Blue Percentage: ${data['Blue Percentage']}%</p>
+      `;
+      // Show the result section
+      document.getElementById('result').classList.remove('hidden');
+      // Check plant status
+      checkPlantStatus(data);
+    }
+
+    function checkPlantStatus(data) {
+      var redPercentage = parseFloat(data['Red Percentage']);
+      var orangePercentage = parseFloat(data['Orange Percentage']);
+      var yellowPercentage = parseFloat(data['Yellow Percentage']);
+      var greenPercentage = parseFloat(data['Green Percentage']);
+      var bluePercentage = parseFloat(data['Blue Percentage']);
+
+      var status = '';
+      if (redPercentage < 0.1 && orangePercentage < 0.1 && yellowPercentage < 0.1 && greenPercentage < 0.5 && bluePercentage < 40) {
+        status = 'Completely Healthy';
+      } else if (redPercentage > 20 || orangePercentage > 20 || yellowPercentage > 20 || greenPercentage > 20 || bluePercentage > 20) {
+        status = 'Completely Unhealthy';
+      } else if (redPercentage > 5 || orangePercentage > 5 || yellowPercentage > 5 || greenPercentage > 5 || bluePercentage > 5) {
+        status = 'Partially Unhealthy (Early Disease Stage)';
+      } else {
+        status = 'Partially Healthy';
+      }
+
+      var plantStatus = document.getElementById('plantStatus');
+      plantStatus.innerHTML = `<p>Status: ${status}</p>`;
+    }
+
+    // Open the chatbot
+    function openChatbot() {
+      var chatbotContainer = document.getElementById('chatbotContainer');
+      chatbotContainer.classList.toggle('hidden');
+    }
+  </script>
+
+  <!-- Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
